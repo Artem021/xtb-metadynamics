@@ -324,6 +324,12 @@ subroutine md(env,mol,chk,calc, &
    !    "metasetlocal" is the dynamic potential for the MTD.
    !    If an ensemble was read into "metaset", only a static RMSD bias is applied.
 
+   ! update metaset using hremd_type:
+   metaset%xyz = hremd_type%xyz
+   metaset%nstruc = hremd_type%nstruc
+   metaset%static = .true.
+
+
    metasetlocal = metaset
    if((metaset%nstruc > 0).and.(metaset%static))then !if >0, an ensemble was read --> static potential
        metasetlocal%maxsave=0 !save nothing new --> deactivate dynamic potential
@@ -445,10 +451,11 @@ subroutine md(env,mol,chk,calc, &
             write(*,'(2x,"adding snapshot to metadynamics bias")')
          endif
       !-------------------------------------------------------------------------
-         emtd = 0.0d0
-         call metadynamic (metasetlocal,mol%n,mol%at,mol%xyz,emtd,grd)
-         epot = epot + emtd
       endif
+      ! removed under last 'if' loop
+      emtd = 0.0d0
+      call metadynamic (metasetlocal,mol%n,mol%at,mol%xyz,emtd,grd)
+      epot = epot + emtd
 
       if(acount.eq.0)then  ! take only accurate Epot for average
          k3=k3+1

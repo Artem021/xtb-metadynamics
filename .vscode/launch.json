@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/home/artem/xtb-v2/build/xtb",
-            "args": ["coord", "--md","-P","1","--mtd_set","test_single.xyz"],
+            "args": ["coord", "--md","-P","1","--gfnff","--hremd","--xyzset", "test_multiple.xyz"],
             "stopAtEntry": true,
             "cwd": "${workspaceRoot}/test-xtb",
 //            "environment": [],

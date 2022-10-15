@@ -131,6 +131,7 @@ list(APPEND srcs
   "${dir}/scf_module.F90"
   "${dir}/screening.f90"
   "${dir}/set_module.f90"
+  "${dir}/hremd.f90"
   "${dir}/setparam.f90"
   "${dir}/shake_module.f90"
   "${dir}/shiftlp.f90"

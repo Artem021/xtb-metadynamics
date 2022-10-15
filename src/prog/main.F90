@@ -16,6 +16,10 @@
 ! along with xtb.  If not, see <https://www.gnu.org/licenses/>.
 
 module xtb_prog_main
+   ! use mctc_io_structure, only : structure_type
+   ! use hremd_tools
+   use mctc_env, only : error_type
+
    use xtb_mctc_accuracy, only : wp
    use xtb_mctc_io, only : stderr
    use xtb_mctc_timings
@@ -113,9 +117,11 @@ subroutine xtbMain(env, argParser)
    type(TRestart) :: chk
    type(chrg_parameter) :: chrgeq
    type(oniom_input) :: oniom
+   type(error_type), allocatable :: err_type
 !  store important names and stuff like that in FORTRAN strings
    character(len=:),allocatable :: fname    ! geometry input file
    character(len=:),allocatable :: xcontrol ! instruction file
+   character(len=:),allocatable :: hremdxyz ! HREMD .xyz file
    character(len=:),allocatable :: xrc      ! global instruction file
    character(len=:),allocatable :: fnv      ! parameter file
    character(len=:),allocatable :: tmpname  ! temporary string
@@ -188,6 +194,8 @@ subroutine xtbMain(env, argParser)
    logical :: strict
    logical :: exitRun
    logical :: cold_fusion
+   logical :: do_hremd = .false. ! switch to H-REMD mode
+   ! type(structure_type) :: struc
 
 !  OMP stuff
    integer :: TID, OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
@@ -202,7 +210,8 @@ subroutine xtbMain(env, argParser)
    ! ------------------------------------------------------------------------
    !> read the command line arguments
    call parseArguments(env, argParser, xcontrol, fnv, acc, lgrad, &
-      & restart, gsolvstate, strict, copycontrol, coffee, printTopo, oniom)
+      & restart, gsolvstate, strict, copycontrol, coffee, printTopo, oniom, &
+      do_hremd, hremdxyz)
 
    nFiles = argParser%countFiles()
    select case(nFiles)
@@ -234,7 +243,9 @@ subroutine xtbMain(env, argParser)
 
    ! ------------------------------------------------------------------------
    !> read the detailed input file
+   ! write(*,*) 'BEFORE rdcontrol: ', hremd_type%alpha
    call rdcontrol(xcontrol, env, copy_file=copycontrol)
+   ! write(*,*) 'AFTER rdcontrol: ', hremd_type%alpha
 
    call env%checkpoint("Reading '"//xcontrol//"' failed")
 
@@ -404,7 +415,37 @@ subroutine xtbMain(env, argParser)
    ! ------------------------------------------------------------------------
    !> CONSTRAINTS & SCANS
    !> now we are at a point that we can check for requested constraints
+   
+    ! write(env%unit,*) 'before read_userdata: ', hremd_type%alpha
    call read_userdata(xcontrol,env,mol)
+   ! write(env%unit,*) 'after read_userdata: ', hremd_type%alpha
+
+   ! read_userdata: alpha --> hremd%alpha
+   ! Now decide if we are using H-REMD method; by default not used
+   if (do_hremd) then
+      write(env%unit,'(10x,a,1x,a,/)') 'H-REMD mode requested'
+      ! if (allocated(hremd_type%alpha)) then
+      write(env%unit,*) 'alpha value is ', hremd_type%alpha
+      ! else
+         ! call env%error("alpha value not found, check $metadyn/alpha", source)
+         ! call env%terminate("H-REMD initialization failed")
+      ! end if 
+      if (allocated(hremdxyz)) then
+         ! read set of structures from .xyz for static bias, if necessary
+         call open_file(ich, hremdxyz, 'r')
+         call read_set(ich,err_type,hremd_type)
+         call close_file(ich)
+         write(env%unit,'(10x,a,1x,a,/)') 'Read set of structures from: ', hremdxyz
+      else
+         write(env%unit,'(10x,a,1x,a,/)') 'No external set of structures was provided'
+      end if
+   else
+      ! no any scaling of nonbonded parts in this case
+      hremd_type%alpha = 1.0_wp
+      write(env%unit,'(10x,a,1x,a,/)') 'H-REMD mode not used'
+   end if
+
+
 
    !> initialize metadynamics
    call load_metadynamic(metaset,mol%n,mol%at,mol%xyz)
@@ -1081,7 +1122,8 @@ end subroutine xtbMain
 
 !> Parse command line arguments and forward them to settings
 subroutine parseArguments(env, args, inputFile, paramFile, accuracy, lgrad, &
-      & restart, gsolvstate, strict, copycontrol, coffee, printTopo, oniom)
+      & restart, gsolvstate, strict, copycontrol, coffee, printTopo, oniom, &
+      do_hremd, hremdFile)
    use xtb_mctc_global, only : persistentEnv
 
    !> Name of error producer
@@ -1098,6 +1140,12 @@ subroutine parseArguments(env, args, inputFile, paramFile, accuracy, lgrad, &
 
    !> Parameter file name
    character(len=:),allocatable,intent(out) :: paramFile
+
+   !> H-REMD .xyz file name
+   character(len=:),allocatable,intent(out) :: hremdFile
+
+   !> perform Hamiltonian scaling for H-REMD
+   logical, intent(out) :: do_hremd
 
    !> Accuracy number for numerical thresholds
    real(wp), intent(out) :: accuracy
@@ -1214,6 +1262,16 @@ subroutine parseArguments(env, args, inputFile, paramFile, accuracy, lgrad, &
          call args%nextArg(inputFile)
          if (.not.allocated(inputFile)) then
             call env%error("Filename for detailed input is missing", source)
+         end if
+
+      case('--hremd')
+         do_hremd = .true.
+
+      
+      case('--xyzset')
+         call args%nextArg(hremdFile)
+         if (.not.allocated(hremdFile)) then
+            call env%error("Filename for H-REMD is missing", source)
          end if
 
       case('--namespace')

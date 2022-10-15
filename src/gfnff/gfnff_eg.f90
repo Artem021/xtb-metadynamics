@@ -67,6 +67,7 @@ contains
       use xtb_type_timer
       use xtb_gfnff_gdisp0
       use xtb_mctc_constants
+      use xtb_fixparam, only : hremd_type
       implicit none
       character(len=*), parameter :: source = 'gfnff_eg'
       type(TEnvironment), intent(inout) :: env
@@ -576,6 +577,13 @@ contains
 !!!!!!!!!!!!!!!!!!
 ! total energy
 !!!!!!!!!!!!!!!!!!
+      ! scaling of nonbonded part
+      ees = ees*hremd_type%alpha
+      edisp = edisp*hremd_type%alpha
+      erep = erep*hremd_type%alpha
+      ehb = ehb*hremd_type%alpha
+      exb = exb*hremd_type%alpha
+
       etot = ees + edisp + erep + ebond &
      &           + eangl + etors + ehb + exb + ebatm + eext &
      &           + gsolv

@@ -18,6 +18,7 @@
 module xtb_fixparam
    use xtb_mctc_accuracy, only : wp
    use xtb_type_setvar
+   use hremd_tools
    implicit none
    private :: wp
    public
@@ -28,6 +29,9 @@ module xtb_fixparam
    type(fix_setvar) :: fixset
    type(fix_setvar) :: shakeset
    type(fix_setvar) :: freezeset
+
+   ! H-REMD type instance
+   type(hremd) :: hremd_type
 
 !! ------------------------------------------------------------------------
 !  RMSD based meta dynamic feature

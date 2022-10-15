@@ -2198,6 +2198,7 @@ subroutine set_metadyn(env,key,val)
    logical,save :: set6 = .true.
    logical,save :: set7 = .true.
    logical,save :: set8 = .true.
+   logical,save :: set9 = .true.
 
    select case(key)
    case default ! do nothing
@@ -2226,6 +2227,12 @@ subroutine set_metadyn(env,key,val)
    case('bias-input', 'bias_input', 'bias input')
       if (set8) rmsdset%fname = val
       set8 = .false.
+   case('alpha')
+      ! write(*,*) 'value before: ', hremd_type%alpha
+      if (getValue(env,val,ddum).and.set9) hremd_type%alpha = ddum
+      ! write(*,*) 'value after: ', hremd_type%alpha
+      ! write(*,*) 'parsed value: ', ddum
+      set9 = .false.
    end select
 
 end subroutine set_metadyn
@@ -2484,6 +2491,7 @@ subroutine set_legacy(env,key,val)
       call set_metadyn(env,'factor',trim(argv(1)))
       call set_metadyn(env,'width', trim(argv(2)))
       call set_metadyn(env,'save',  trim(argv(3)))
+      ! call set_metadyn(env,'alpha', trim(argv(4)))
 
    case('atomlist+'); continue ! use later in constrain_param
    case('atomlist-'); call env%warning("$set/atomlist- is not implemented", source)
