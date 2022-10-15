@@ -327,7 +327,12 @@ subroutine md(env,mol,chk,calc, &
    ! update metaset using hremd_type:
    metaset%xyz = hremd_type%xyz
    metaset%nstruc = hremd_type%nstruc
-   metaset%static = .true.
+   ! avoid switch to static potential in case of ordinary md
+   if (hremd_type%nstruc.gt.0) then
+      metaset%static = .true.
+   else
+      metaset%static = .false.
+   end if
 
 
    metasetlocal = metaset

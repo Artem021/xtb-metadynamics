@@ -53,7 +53,7 @@ module hremd_tools
       type(hremd),intent(inout) :: hremd_type
       integer :: nat
       real(wp), allocatable :: structures(:,:,:)
-      integer :: n
+      integer :: n=0
 
       call read_coord(structures,unit,err,n)
 
