@@ -26,6 +26,8 @@ module hremd_tools
     public :: hremd, read_set
     private
     type :: hremd
+      logical :: do_hremd
+      logical :: external
       logical :: err
       real(wp), allocatable :: xyz(:, :, :)
       real(wp) :: alpha

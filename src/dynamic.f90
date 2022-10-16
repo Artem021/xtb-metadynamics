@@ -325,15 +325,17 @@ subroutine md(env,mol,chk,calc, &
    !    If an ensemble was read into "metaset", only a static RMSD bias is applied.
 
    ! update metaset using hremd_type:
-   metaset%xyz = hremd_type%xyz
-   metaset%nstruc = hremd_type%nstruc
-   ! avoid switch to static potential in case of ordinary md
-   if (hremd_type%nstruc.gt.0) then
+   if (hremd_type%do_hremd.and.hremd_type%external) then
+      if (.not.allocated(hremd_type%xyz)) then
+         call env%terminate('ERROR: external set was not read correctly!')
+      end if
+      metaset%xyz = hremd_type%xyz
+      metaset%nstruc = hremd_type%nstruc
       metaset%static = .true.
    else
+      ! avoid switch to static potential in case of ordinary md
       metaset%static = .false.
    end if
-
 
    metasetlocal = metaset
    if((metaset%nstruc > 0).and.(metaset%static))then !if >0, an ensemble was read --> static potential

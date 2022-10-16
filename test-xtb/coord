@@ -16,16 +16,13 @@ $coord
 $end
 $md
   restart=false
-  hmass=4.0
+  hmass=4
   time=     10.00
   temp=    300.00
   step=      2.00
   shake=0
   dump=0
   skip=1
-$set
-  mddump  1000
-$end
 $metadyn
   save=5
   kpush=0.042000    

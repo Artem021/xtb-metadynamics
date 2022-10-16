@@ -423,9 +423,10 @@ subroutine xtbMain(env, argParser)
    ! read_userdata: alpha --> hremd%alpha
    ! Now decide if we are using H-REMD method; by default not used
    if (do_hremd) then
+      hremd_type%do_hremd = .true.
       write(env%unit,'(10x,a,1x,a,/)') 'H-REMD mode requested'
       ! if (allocated(hremd_type%alpha)) then
-      write(env%unit,*) 'alpha value is ', hremd_type%alpha
+      write(env%unit,'(10x,a,1x,f10.4,/)') "ALPHA value is:", hremd_type%alpha
       ! else
          ! call env%error("alpha value not found, check $metadyn/alpha", source)
          ! call env%terminate("H-REMD initialization failed")
@@ -435,12 +436,16 @@ subroutine xtbMain(env, argParser)
          call open_file(ich, hremdxyz, 'r')
          call read_set(ich,err_type,hremd_type)
          call close_file(ich)
+         hremd_type%external = .true.
          write(env%unit,'(10x,a,1x,a,/)') 'Read set of structures from: ', hremdxyz
       else
          write(env%unit,'(10x,a,1x,a,/)') 'No external set of structures was provided'
+         hremd_type%external = .false.
       end if
    else
       ! no any scaling of nonbonded parts in this case
+      hremd_type%do_hremd = .false.
+      hremd_type%external = .false.
       hremd_type%alpha = 1.0_wp
       write(env%unit,'(10x,a,1x,a,/)') 'H-REMD mode not used'
    end if

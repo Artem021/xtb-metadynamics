@@ -34,6 +34,7 @@
 # directories
 /build*/
 /_*/
+/test-xtb/
 
 # files produces by the documentation
 man/*.pdf
