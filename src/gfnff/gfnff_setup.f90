@@ -22,7 +22,7 @@ module xtb_gfnff_setup
   use xtb_gfnff_generator, only : TGFFGenerator
   implicit none
   private
-  public :: gfnff_setup, gfnff_input
+  public :: gfnff_setup, gfnff_input,write_gfnff_adjacency
 
 contains
 

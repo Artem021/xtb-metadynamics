@@ -957,10 +957,26 @@ subroutine xtbMain(env, argParser)
       type is(TGFFCalculator)
          if (set%shake_md) call gff_init_shake(mol%n,mol%at,mol%xyz,calc%topo)
       end select
+
+      ! select type(calc)
+      ! type is(TGFFCalculator)
+      !    printTopo%nb = .true.
+      !   call write_json_gfnff_lists(mol%n,calc%topo,chk%nlist,printTopo)
+      !   printTopo%nb = .false.
+      ! end select
+
       call md &
          &     (env,mol,chk,calc, &
          &      egap,set%etemp,set%maxscciter,etot,g,sigma,0,set%temp_md,idum)
       call stop_timing(6)
+      
+      ! select type(calc)
+      ! type is(TGFFCalculator)
+      !    printTopo%nb = .true.
+      !   call write_json_gfnff_lists(mol%n,calc%topo,chk%nlist,printTopo)
+      !   printTopo%nb = .false.
+      ! end select
+
    endif
 
 

@@ -27,7 +27,7 @@ module xtb_io_writer
    implicit none
    private
 
-   public :: writeMolecule
+   public :: writeMolecule,writeMolecule2
 
 
 contains
@@ -71,5 +71,49 @@ subroutine writeMolecule(self, unit, format, energy, gnorm, number)
    flush(unit)
 end subroutine writeMolecule
 
+subroutine writeMolecule2(self, unit, format, energy, gnorm, vbias)
+   class(TMolecule), intent(in) :: self
+   integer, intent(in) :: unit
+   integer, intent(in), optional :: format
+   real(wp), intent(in), optional :: energy
+   real(wp), intent(in), optional :: gnorm
+   real(wp), intent(in), optional :: vbias
+   ! integer, intent(in), optional :: number
+   character(len=:), allocatable :: comment_line
+   character(len=20) :: energy_line
+   character(len=20) :: gnorm_line
+   character(len=20) :: vbias_line
+   type(structure_type) :: struc
+   type(error_type), allocatable :: error
+   integer :: ftype
+   if (present(format)) then
+      ftype = format
+   else
+      ftype = self%ftype
+   endif
+
+   comment_line = ''
+   if (present(energy)) then
+      write(energy_line, '(f20.12)') energy
+      comment_line = comment_line // " energy: " // trim(adjustl(energy_line))
+   endif
+   ! if (present(gnorm)) then
+   !    write(gnorm_line, '(f20.12)') gnorm
+   !    comment_line = comment_line // " gnorm: " // trim(adjustl(gnorm_line))
+   ! endif
+   if (present(vbias)) then
+      write(vbias_line, '(f20.12)') vbias
+      comment_line = comment_line // " V_BIAS: " // trim(adjustl(vbias_line))
+   endif
+
+   comment_line = comment_line // " xtb: " // version
+
+   struc = self
+   struc%comment = trim(comment_line)
+   call write_structure(struc, unit, ftype, error)
+
+   ! Flush file so that the output file can be visualized during optimization
+   flush(unit)
+end subroutine writeMolecule2
 
 end module xtb_io_writer

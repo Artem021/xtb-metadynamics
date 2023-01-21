@@ -62,6 +62,7 @@ contains
    subroutine gfnff_eg(env,pr,n,ichrg,at,xyz,makeq,g,etot,res_gff, &
          & param,topo,nlist,solvation,update,version,accuracy)
       use xtb_mctc_accuracy, only : wp
+      use xtb_gfnff_setup, only : write_gfnff_adjacency
       use xtb_gfnff_param, only : efield, gffVersion, gfnff_thresholds
       use xtb_type_data
       use xtb_type_timer
@@ -84,6 +85,8 @@ contains
       integer at(n)
       real*8 xyz(3,n)
       real*8 g  (3,n)
+      real*8 gcopy  (3,n)
+      real*8 gdisp  (3,n)
       real*8 etot
       logical pr
       logical makeq
@@ -113,9 +116,14 @@ contains
       type(tb_timer) :: timer
       real(wp) :: dispthr, cnthr, repthr, hbthr1, hbthr2
 
+      ! debug
+      call write_gfnff_adjacency('gfnff_adjacency-MOD',topo)
+
       call gfnff_thresholds(accuracy, dispthr, cnthr, repthr, hbthr1, hbthr2)
 
       g  =  0
+      gcopy=0
+      gdisp=0
       exb = 0
       ehb = 0
       erep= 0
@@ -230,8 +238,8 @@ contains
          erep=erep+t26/rab !energy
          t27=t26*(1.5d0*t8+1.0d0)/t19
          r3 =(xyz(:,iat)-xyz(:,jat))*t27
-         g(:,iat)=g(:,iat)-r3
-         g(:,jat)=g(:,jat)+r3
+         g(:,iat)=g(:,iat)-r3*hremd_type%alpha
+         g(:,jat)=g(:,jat)+r3*hremd_type%alpha
          enddo
       enddo
       !$omp end parallel do
@@ -241,7 +249,13 @@ contains
 ! just a extremely crude mode for 2D-3D conversion
 ! i.e. an harmonic potential with estimated Re
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! if (version == gffVersion%harmonic2020) then
+      !       write(*,*) "v.2020, enters additional cycle"
+      ! else
+      !       write(*,*) "v!=2020, SKIP additional cycle"
+      ! end if
 
+      ! skips
       if (version == gffVersion%harmonic2020) then
       ebond=0
       !$omp parallel do default(none) reduction(+:ebond, g) &
@@ -255,8 +269,8 @@ contains
          r2=rn-rab
          ebond=ebond+0.1d0*r2**2  ! fixfc = 0.1
          dum=0.1d0*2.0d0*r2/rab
-         g(:,jat)=g(:,jat)+dum*r3
-         g(:,iat)=g(:,iat)-dum*r3
+         g(:,jat)=g(:,jat)+dum*r3!*hremd_type%alpha
+         g(:,iat)=g(:,iat)-dum*r3!*hremd_type%alpha
       enddo
       !$omp end parallel do
       etot = ebond + erep
@@ -272,6 +286,24 @@ contains
       if (sum(topo%nr_hb).gt.0) call dncoord_erf(n,at,xyz,param%rcov,hb_cn,hb_dcn,900.0d0,topo) ! HB erf CN
       if (pr) call timer%measure(3)
 
+! Fixed Coordination Number (CN)
+      if(hremd_type%do_hremd) then
+            if(allocated(hremd_type%cn)) then
+                  cn = hremd_type%cn
+                  dcn = hremd_type%dcn
+                  hb_dcn = hremd_type%hb_dcn
+                  hb_cn = hremd_type%hb_cn
+            else
+                  allocate(hremd_type%dcn(3,n,n),hremd_type%cn(n), &
+                  &         hremd_type%hb_dcn(3,n,n),hremd_type%hb_cn(n))
+                  
+                  hremd_type%cn = cn
+                  hremd_type%dcn = dcn
+                  hremd_type%hb_dcn = hb_dcn
+                  hremd_type%hb_cn = hb_cn
+                  write(*,*) "CN ALLOCATION"
+            end if
+      end if
 !!!!!!
 ! EEQ
 !!!!!!
@@ -287,8 +319,14 @@ contains
 
       if (pr) call timer%measure(5,'D3')
       if(nd3.gt.0) then
+            gdisp = 0
          call d3_gradient(topo%dispm, n, at, xyz, nd3, d3list, topo%zetac6, &
-            & param%d3r0, sqrtZr4r2, 4.0d0, param%dispscale, cn, dcn, edisp, g)
+            & param%d3r0, sqrtZr4r2, 4.0d0, param%dispscale, cn, dcn, edisp, gdisp)
+            if (hremd_type%do_hremd) then
+                  g = g + gdisp*hremd_type%alpha
+            else
+                  g = g + gdisp
+            end if
       endif
       deallocate(d3list)
       if (pr) call timer%measure(5)
@@ -311,8 +349,8 @@ contains
             dd=(2.0d0*gammij*exp(-gammij**2*r2) &
                & /(sqrtpi*r2)-erff/(rab*r2))*nlist%q(i)*nlist%q(j)
             r3=(xyz(:,i)-xyz(:,j))*dd
-            g(:,i)=g(:,i)+r3
-            g(:,j)=g(:,j)-r3
+            g(:,i)=g(:,i)+r3*hremd_type%alpha
+            g(:,j)=g(:,j)-r3*hremd_type%alpha
          enddo
       enddo
       !$omp end parallel do
@@ -320,7 +358,13 @@ contains
 
       if (allocated(solvation)) then
          call timer%measure(11, "GBSA")
-         call solvation%addGradient(env, at, xyz, nlist%q, nlist%q, g)
+         gdisp = 0
+         call solvation%addGradient(env, at, xyz, nlist%q, nlist%q, gdisp)
+         if (hremd_type%do_hremd) then
+            g = g + gdisp*hremd_type%alpha
+         else
+            g = g + gdisp
+         end if
          call solvation%getEnergyParts(env, nlist%q, nlist%q, gborn, ghb, gsasa, &
             & gshift)
          gsolv = gsasa + gborn + ghb + gshift
@@ -334,7 +378,7 @@ contains
          qtmp(i)=nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i))+1.d-16)
       enddo
 
-      call mctc_gemv(dcn, qtmp, g, alpha=-1.0_wp, beta=1.0_wp)
+      ! call mctc_gemv(dcn, qtmp, g, alpha=-1.0_wp, beta=1.0_wp)
       if (pr) call timer%measure(6)
 
 !!!!!!!!!!!!!!!!!!
@@ -347,6 +391,44 @@ contains
       rab0(:)=topo%vbond(1,:) ! shifts
       call gfnffdrab(n,at,xyz,cn,dcn,topo%nbond,topo%blist,rab0,grab0)
       deallocate(dcn)
+      
+      ! keep rab0 constant
+      ! if(allocated(hremd_type%rab0_ref)) then
+      !       rab0 = hremd_type%rab0_ref
+      ! else
+      !       allocate(hremd_type%rab0_ref(topo%nbond)) ! memory..
+      !       hremd_type%rab0_ref = rab0
+      !       write(*,*) "rab0 ALLOCATION"
+      ! end if
+
+      ! keep grab0 constant
+      ! if(allocated(hremd_type%grab0_ref)) then
+      !       grab0 = hremd_type%grab0_ref
+      ! else
+      !       allocate(hremd_type%grab0_ref(3,n,topo%nbond)) ! memory..
+      !       hremd_type%grab0_ref = grab0
+      !       write(*,*) "grab0 ALLOCATION"
+      ! end if
+
+      ! write(*,*) "rab0:"
+      ! do i=1,topo%nbond
+      !       write(*,*) rab0(i)
+      ! end do
+      ! write(*,*) "end rab0:"
+
+      ! write(*,*) "grab0:"
+      ! do i=1,topo%nbond
+      !       write(*,*) grab0(:,:,i)
+      !       exit
+      ! end do
+      ! write(*,*) "end grab0:"
+
+      !write(*,*) "MIN_rab0: ", minval(rab0)
+      !write(*,*) "MAX_rab0: ", maxval(rab0)
+
+      ! write(*,*) "MIN_grab0: ", minval(grab0)
+      ! write(*,*) "MAX_grab0: ", maxval(grab0)
+
 
       !$omp parallel do default(none) reduction(+:g, ebond) &
       !$omp shared(grab0, topo, param, rab0, srab, xyz, at, hb_cn, hb_dcn, n) &
@@ -362,9 +444,20 @@ contains
          rij=rab0(i)
          drij=grab0(:,:,i)
          if (topo%nr_hb(i).ge.1) then
+            ! write(*,*) "+ HYDROGENS_CHECK: nr_hb: ", topo%nr_hb(i)
+            ! gcopy = g
             call egbond_hb(i,iat,jat,rab,rij,drij,hb_cn,hb_dcn,n,at,xyz,ebond,g,param,topo)
+            ! call egbond(i,iat,jat,rab,rij,drij,n,at,xyz,ebond,g,topo)
+            ! if (hremd_type%do_hremd) then
+            !       g = gcopy
+            ! end if
          else
+            ! write(*,*) "- HYDROGENS_CHECK: nr_hb: ", topo%nr_hb(i)
+            ! gcopy = g
             call egbond(i,iat,jat,rab,rij,drij,n,at,xyz,ebond,g,topo)
+            ! if (hremd_type%do_hremd) then
+                  ! g = gcopy
+            ! end if
          end if
       enddo
       !$omp end parallel do
@@ -400,12 +493,12 @@ contains
          t26=exp(-alpha*t16)*repab
          erep=erep+t26/rab !energy
          t27=t26*(1.5d0*alpha*t16+1.0d0)/t19
-         g(1,iat)=g(1,iat)-dx*t27
-         g(2,iat)=g(2,iat)-dy*t27
-         g(3,iat)=g(3,iat)-dz*t27
-         g(1,jat)=g(1,jat)+dx*t27
-         g(2,jat)=g(2,jat)+dy*t27
-         g(3,jat)=g(3,jat)+dz*t27
+         g(1,iat)=g(1,iat)-dx*t27!*hremd_type%alpha
+         g(2,iat)=g(2,iat)-dy*t27!*hremd_type%alpha
+         g(3,iat)=g(3,iat)-dz*t27!*hremd_type%alpha
+         g(1,jat)=g(1,jat)+dx*t27!*hremd_type%alpha
+         g(2,jat)=g(2,jat)+dy*t27!*hremd_type%alpha
+         g(3,jat)=g(3,jat)+dz*t27!*hremd_type%alpha
       enddo
       !$omp end parallel do
       endif
@@ -425,9 +518,9 @@ contains
             i = topo%alist(2,m)
             k = topo%alist(3,m)
             call egbend(m,j,i,k,n,at,xyz,etmp,g3tmp,param,topo)
-            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)
-            g(1:3,i)=g(1:3,i)+g3tmp(1:3,2)
-            g(1:3,k)=g(1:3,k)+g3tmp(1:3,3)
+            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)!*hremd_type%alpha
+            g(1:3,i)=g(1:3,i)+g3tmp(1:3,2)!*hremd_type%alpha
+            g(1:3,k)=g(1:3,k)+g3tmp(1:3,3)!*hremd_type%alpha
             eangl=eangl+etmp
          enddo
          !$omp end parallel do
@@ -447,10 +540,10 @@ contains
             k=topo%tlist(3,m)
             l=topo%tlist(4,m)
             call egtors(m,i,j,k,l,n,at,xyz,etmp,g4tmp,param,topo)
-            g(1:3,i)=g(1:3,i)+g4tmp(1:3,1)
-            g(1:3,j)=g(1:3,j)+g4tmp(1:3,2)
-            g(1:3,k)=g(1:3,k)+g4tmp(1:3,3)
-            g(1:3,l)=g(1:3,l)+g4tmp(1:3,4)
+            g(1:3,i)=g(1:3,i)+g4tmp(1:3,1)!*hremd_type%alpha
+            g(1:3,j)=g(1:3,j)+g4tmp(1:3,2)!*hremd_type%alpha
+            g(1:3,k)=g(1:3,k)+g4tmp(1:3,3)!*hremd_type%alpha
+            g(1:3,l)=g(1:3,l)+g4tmp(1:3,4)!*hremd_type%alpha
             etors=etors+etmp
          enddo
          !$omp end parallel do
@@ -471,9 +564,9 @@ contains
             k=topo%b3list(2,i)
             l=topo%b3list(3,i)
             call batmgfnff_eg(n,j,k,l,at,xyz,topo%qa,sqrab,srab,etmp,g3tmp,param)
-            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)
-            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)
-            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)
+            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)*hremd_type%alpha
+            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)*hremd_type%alpha
+            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)*hremd_type%alpha
             ebatm=ebatm+etmp
          enddo
          !$omp end parallel do
@@ -495,9 +588,9 @@ contains
             k=nlist%hblist1(2,i)
             l=nlist%hblist1(3,i)
             call abhgfnff_eg1(n,j,k,l,at,xyz,topo%qa,sqrab,srab,etmp,g3tmp,param,topo)
-            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)
-            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)
-            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)
+            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)*hremd_type%alpha
+            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)*hremd_type%alpha
+            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)*hremd_type%alpha
             ehb=ehb+etmp
             nlist%hbe1(i)=etmp ! HB energies  
          enddo
@@ -530,7 +623,7 @@ contains
                call abhgfnff_eg2new(n,j,k,l,at,xyz,topo%qa,sqrab,srab, &
                   & etmp,g5tmp,param,topo)
             end if
-            g=g+g5tmp
+            g=g+g5tmp*hremd_type%alpha
             ehb=ehb+etmp
             nlist%hbe2(i)=etmp
          enddo
@@ -550,9 +643,9 @@ contains
             k=nlist%hblist3(2,i)
             l=nlist%hblist3(3,i)
             call rbxgfnff_eg(n,j,k,l,at,xyz,topo%qa,etmp,g3tmp,param)
-            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)
-            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)
-            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)
+            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)*hremd_type%alpha
+            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)*hremd_type%alpha
+            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)*hremd_type%alpha
             exb=exb+etmp
             nlist%hbe3(i)=etmp
          enddo
@@ -567,7 +660,7 @@ contains
       if(sum(abs(efield)).gt.1d-6)then
          do i=1,n
             r3(:) =-nlist%q(i)*efield(:)
-            g(:,i)= g(:,i) + r3(:)
+            g(:,i)= g(:,i) + r3(:)*hremd_type%alpha
             eext = eext + r3(1)*(xyz(1,i)-topo%xyze0(1,i))+&
      &                    r3(2)*(xyz(2,i)-topo%xyze0(2,i))+&
      &                    r3(3)*(xyz(3,i)-topo%xyze0(3,i))
@@ -578,11 +671,14 @@ contains
 ! total energy
 !!!!!!!!!!!!!!!!!!
       ! scaling of nonbonded part
-      ees = ees*hremd_type%alpha
-      edisp = edisp*hremd_type%alpha
-      erep = erep*hremd_type%alpha
-      ehb = ehb*hremd_type%alpha
-      exb = exb*hremd_type%alpha
+      ! ees = ees*hremd_type%alpha
+      ! edisp = edisp*hremd_type%alpha
+      ! erep = erep*hremd_type%alpha
+      ! ehb = ehb*hremd_type%alpha
+      ! exb = exb*hremd_type%alpha
+      ! eext = eext*hremd_type%alpha
+
+      ! g = 0
 
       etot = ees + edisp + erep + ebond &
      &           + eangl + etors + ehb + exb + ebatm + eext &

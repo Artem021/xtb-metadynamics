@@ -32,6 +32,9 @@ module hremd_tools
       real(wp), allocatable :: xyz(:, :, :)
       real(wp) :: alpha
       integer :: nstruc
+
+      ! variables to check rab0 and grab0 calculation:
+      real*8, allocatable :: grab0_ref(:,:,:), rab0_ref(:), cn(:), dcn(:,:,:), hb_cn(:), hb_dcn(:,:,:)
     end type hremd
     
  contains

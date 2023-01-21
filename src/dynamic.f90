@@ -16,7 +16,7 @@
 ! along with xtb.  If not, see <https://www.gnu.org/licenses/>.
 
 module xtb_dynamic
-   use xtb_io_writer, only : writeMolecule
+   use xtb_io_writer, only : writeMolecule,writeMolecule2
    use xtb_mctc_accuracy, only : wp
    use xtb_mctc_filetypes, only : fileType
    use xtb_single, only : singlepoint
@@ -197,7 +197,7 @@ subroutine md(env,mol,chk,calc, &
    integer, allocatable :: na(:),nb(:),nc(:)
    character(len=80) :: atmp
    character(len=:),allocatable :: fname
-   integer :: ich,trj,pdb,imdl
+   integer :: ich,trj,pdb,imdl,frcs
    logical :: exist
 
    type(metadyn_setvar) :: metasetlocal
@@ -371,6 +371,7 @@ subroutine md(env,mol,chk,calc, &
       write(atmp,'(''xtb.trj.'',i0)')icall
    endif
    call open_file(trj,trim(atmp),'w')
+   call open_file(frcs,'FORCES','w')
    pdb = -1
    if (allocated(mol%pdb) .and. icall == 0) then
       call open_file(pdb, 'xtb-trj.pdb', 'w')
@@ -469,16 +470,18 @@ subroutine md(env,mol,chk,calc, &
          ep_prec=ep_prec+epot
       endif
 
+      ! TODO: hremd check
+
       ! okay, but you can also check for res%converged, can't you?
-      if(epot.ne.epot.or. &
-         &   epot.gt.1.d+5.or. &
-         &   epot.lt.-1.d+5.or. & ! WHY?! this is completely resonable for >10000 atoms
-         &   T.gt.10000) then
-         write(*,*) epot,T
-         write(*,*) 'MD is unstable, emergency exit '
-         write(*,*) 'but still taking it as converged!'
-         goto 1000
-      endif
+      ! if(epot.ne.epot.or. &
+      !    &   epot.gt.1.d+5.or. & 
+      !    &   epot.lt.-1.d+5.or. & ! WHY?! this is completely resonable for >10000 atoms
+      !    &   T.gt.10000) then
+      !    write(*,*) epot,T
+      !    write(*,*) 'MD is unstable, emergency exit '
+      !    write(*,*) 'but still taking it as converged!'
+      !    goto 1000
+      ! endif
 
       if(k.eq.100)then
          call timing(t1,w1)
@@ -536,7 +539,10 @@ subroutine md(env,mol,chk,calc, &
       ! dump xyz (trj)
       if(ndump.gt.dumpstep-1)then
          ndump=0
-         call writeMolecule(mol, trj, fileType%xyz, energy=epot, gnorm=res%gnorm)
+         ! call writeMolecule(mol, trj, fileType%xyz, energy=epot, gnorm=res%gnorm)
+         ! print bias energy
+         call writeMolecule2(mol, trj, fileType%xyz, energy=epot, gnorm=res%gnorm,vbias=emtd)
+         
          if(set%velodump)then
             do i=1,mol%n
                write(trj,'(3f20.14)')velo(1:3,i)
@@ -552,6 +558,13 @@ subroutine md(env,mol,chk,calc, &
       !! ========================================================================
 
       !     compute the accelaration at t
+      
+      ! call open_file(frcs,'FORCES','w')
+      write(frcs,*) cdump
+      do i=1,mol%n
+         write(frcs,*) grd(:,i)
+      enddo
+      ! call close_file(frcs)
       do i=1,mol%n
          acc(:,i)=-grd(:,i)/mass(i)
       enddo
@@ -679,6 +692,7 @@ subroutine md(env,mol,chk,calc, &
    if (pdb /= -1) then
       call close_file(pdb)
    end if
+   call close_file(frcs)
 
    write(*,*) 'average properties '
    write(*,*) 'Epot               :',Epav/k
