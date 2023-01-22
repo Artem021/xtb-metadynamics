@@ -62,7 +62,7 @@ contains
    subroutine gfnff_eg(env,pr,n,ichrg,at,xyz,makeq,g,etot,res_gff, &
          & param,topo,nlist,solvation,update,version,accuracy)
       use xtb_mctc_accuracy, only : wp
-      use xtb_gfnff_setup, only : write_gfnff_adjacency
+      ! use xtb_gfnff_setup, only : write_gfnff_adjacency
       use xtb_gfnff_param, only : efield, gffVersion, gfnff_thresholds
       use xtb_type_data
       use xtb_type_timer
@@ -117,7 +117,7 @@ contains
       real(wp) :: dispthr, cnthr, repthr, hbthr1, hbthr2
 
       ! debug
-      call write_gfnff_adjacency('gfnff_adjacency-MOD',topo)
+      ! call write_gfnff_adjacency('gfnff_adjacency-MOD',topo)
 
       call gfnff_thresholds(accuracy, dispthr, cnthr, repthr, hbthr1, hbthr2)
 
