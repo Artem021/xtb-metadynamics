@@ -238,8 +238,8 @@ contains
          erep=erep+t26/rab !energy
          t27=t26*(1.5d0*t8+1.0d0)/t19
          r3 =(xyz(:,iat)-xyz(:,jat))*t27
-         g(:,iat)=g(:,iat)-r3*hremd_type%alpha
-         g(:,jat)=g(:,jat)+r3*hremd_type%alpha
+         g(:,iat)=g(:,iat)-r3!*hremd_type%alpha
+         g(:,jat)=g(:,jat)+r3!*hremd_type%alpha
          enddo
       enddo
       !$omp end parallel do
@@ -323,7 +323,7 @@ contains
          call d3_gradient(topo%dispm, n, at, xyz, nd3, d3list, topo%zetac6, &
             & param%d3r0, sqrtZr4r2, 4.0d0, param%dispscale, cn, dcn, edisp, gdisp)
             if (hremd_type%do_hremd) then
-                  g = g + gdisp*hremd_type%alpha
+                  g = g + gdisp!*hremd_type%alpha
             else
                   g = g + gdisp
             end if
@@ -349,8 +349,8 @@ contains
             dd=(2.0d0*gammij*exp(-gammij**2*r2) &
                & /(sqrtpi*r2)-erff/(rab*r2))*nlist%q(i)*nlist%q(j)
             r3=(xyz(:,i)-xyz(:,j))*dd
-            g(:,i)=g(:,i)+r3*hremd_type%alpha
-            g(:,j)=g(:,j)-r3*hremd_type%alpha
+            g(:,i)=g(:,i)+r3!*hremd_type%alpha
+            g(:,j)=g(:,j)-r3!*hremd_type%alpha
          enddo
       enddo
       !$omp end parallel do
@@ -361,7 +361,7 @@ contains
          gdisp = 0
          call solvation%addGradient(env, at, xyz, nlist%q, nlist%q, gdisp)
          if (hremd_type%do_hremd) then
-            g = g + gdisp*hremd_type%alpha
+            g = g + gdisp!*hremd_type%alpha
          else
             g = g + gdisp
          end if
@@ -564,9 +564,9 @@ contains
             k=topo%b3list(2,i)
             l=topo%b3list(3,i)
             call batmgfnff_eg(n,j,k,l,at,xyz,topo%qa,sqrab,srab,etmp,g3tmp,param)
-            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)*hremd_type%alpha
-            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)*hremd_type%alpha
-            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)*hremd_type%alpha
+            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)!*hremd_type%alpha
+            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)!*hremd_type%alpha
+            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)!*hremd_type%alpha
             ebatm=ebatm+etmp
          enddo
          !$omp end parallel do
@@ -588,9 +588,9 @@ contains
             k=nlist%hblist1(2,i)
             l=nlist%hblist1(3,i)
             call abhgfnff_eg1(n,j,k,l,at,xyz,topo%qa,sqrab,srab,etmp,g3tmp,param,topo)
-            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)*hremd_type%alpha
-            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)*hremd_type%alpha
-            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)*hremd_type%alpha
+            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)!*hremd_type%alpha
+            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)!*hremd_type%alpha
+            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)!*hremd_type%alpha
             ehb=ehb+etmp
             nlist%hbe1(i)=etmp ! HB energies  
          enddo
@@ -623,7 +623,7 @@ contains
                call abhgfnff_eg2new(n,j,k,l,at,xyz,topo%qa,sqrab,srab, &
                   & etmp,g5tmp,param,topo)
             end if
-            g=g+g5tmp*hremd_type%alpha
+            g=g+g5tmp!*hremd_type%alpha
             ehb=ehb+etmp
             nlist%hbe2(i)=etmp
          enddo
@@ -643,9 +643,9 @@ contains
             k=nlist%hblist3(2,i)
             l=nlist%hblist3(3,i)
             call rbxgfnff_eg(n,j,k,l,at,xyz,topo%qa,etmp,g3tmp,param)
-            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)*hremd_type%alpha
-            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)*hremd_type%alpha
-            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)*hremd_type%alpha
+            g(1:3,j)=g(1:3,j)+g3tmp(1:3,1)!*hremd_type%alpha
+            g(1:3,k)=g(1:3,k)+g3tmp(1:3,2)!*hremd_type%alpha
+            g(1:3,l)=g(1:3,l)+g3tmp(1:3,3)!*hremd_type%alpha
             exb=exb+etmp
             nlist%hbe3(i)=etmp
          enddo
@@ -660,7 +660,7 @@ contains
       if(sum(abs(efield)).gt.1d-6)then
          do i=1,n
             r3(:) =-nlist%q(i)*efield(:)
-            g(:,i)= g(:,i) + r3(:)*hremd_type%alpha
+            g(:,i)= g(:,i) + r3(:)!*hremd_type%alpha
             eext = eext + r3(1)*(xyz(1,i)-topo%xyze0(1,i))+&
      &                    r3(2)*(xyz(2,i)-topo%xyze0(2,i))+&
      &                    r3(3)*(xyz(3,i)-topo%xyze0(3,i))

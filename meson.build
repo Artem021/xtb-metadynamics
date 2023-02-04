@@ -140,7 +140,8 @@ xtb_header = files('include/xtb.h')
 ## INSTALL
 ## ========================================== ##
 if install
-  install_headers(xtb_header)
+#  install_headers(xtb_header)
+  install_headers(xtb_header,preserve_path : true)
 endif
 
 asciidoc = find_program('asciidoctor', required: false)

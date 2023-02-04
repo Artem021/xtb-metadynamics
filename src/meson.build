@@ -31,6 +31,7 @@ subdir('solv')
 subdir('xtb')
 
 srcs += files(
+  'hremd.f90',
   'aespot.f90',
   'anharmlib.f90',
   'aoparam.f90',
