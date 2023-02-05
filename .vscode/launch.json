@@ -6,25 +6,34 @@
     "configurations": [
 
         {
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin/"
+            }
+            ],
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
             "program": "/home/artem/xtb-v2/build/xtb",
-            // "args": ["coord", "--md","-P","1","--gfnff","--hremd","--xyzset", "test_multiple.xyz"],
+            "args": ["coord", "--md","-P","1","--gfnff","--hremd","--xyzset", "test_multiple.xyz"],
             // "args": ["coord", "--md","-P","1","--gfnff","--hremd"],
-            "args": ["coord", "-P","1","--gfnff","--hremd"],
+
+            // "args": ["coord", "-P","1","--gfnff","--hremd"],
+            
             // "args": ["coord", "--md","-P","1","--gfnff"],
             "stopAtEntry": true,
             "cwd": "${workspaceRoot}/test-xtb",
 //            "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "preLaunchTask": "make",
+            // "preLaunchTask": "make",
+            "preLaunchTask": "build",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
+                    "ignoreFailures": false
                 }
             ]
         }

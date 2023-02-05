@@ -1,13 +1,68 @@
+// {
+//     "version": "2.0.0",
+//     "tasks": [
+//         {
+//             "label": "make",
+//             "type": "shell",
+//             "command": "make -j4",
+//             "options": {
+//                 "cwd": "${workspaceRoot}/build"
+//             }
+//         }
+//     ]
+// }
 {
     "version": "2.0.0",
+    "options": {
+        "env": {
+            "LIBRARY_PATH": "/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin/"
+        }
+    },
     "tasks": [
         {
-            "label": "make",
+            "label": "path",
             "type": "shell",
-            "command": "make -j4",
+            // "command": "export LD_LIBRARY_PATH=/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl/lib/intel64_lin/",
+            // "command": "source /opt/intel/bin/compilervars.sh intel64 -platform linux"
+            "command": "echo $LIBRARY_PATH"
+            // "command": "export PATH=/home/artem/miniconda3/bin/",
+        },
+        {
+            "label": "meson",
+            "type": "shell",
+            // "linux":{"command": "/home/artem/miniconda3/bin/meson setup build"},
+            // /home/artem/miniconda3/bin/meson
+            "command": "meson",
+            "args": [
+                "setup",
+                "build",
+                // "--reconfigure",
+                "--prefix=$PWD",
+                "--default-library=shared",
+                "-Dla_backend=mkl",
+                "--includedir=include",
+                "--bindir=bin",
+                "--libdir=lib",
+                "--datadir=share",
+                "--mandir=man"],
             "options": {
-                "cwd": "${workspaceRoot}/build"
+                "cwd": "${workspaceRoot}"
             }
+        },
+        {
+            "label": "ninja",
+            "type": "shell",
+            "command": "ninja",
+            "args": ["-C","build","install"],
+            "options": {
+                "cwd": "${workspaceRoot}"
+            }
+        },
+        {
+            "label": "build",
+            // "dependsOn":["path","meson","ninja"]
+            "dependsOn":["meson","ninja"]
+            // "dependsOn":["path"]
         }
     ]
 }
